@@ -19,6 +19,7 @@ package einoagent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/cloudwego/eino/compose"
@@ -65,6 +66,7 @@ func fullStreamChecker(ctx context.Context, sr *schema.StreamReader[*schema.Mess
 			}
 			return false, err
 		}
+		fmt.Printf("fullStreamChecker msg: %+v\n", msg.Content)
 		if len(msg.ToolCalls) > 0 {
 			return true, nil
 		}

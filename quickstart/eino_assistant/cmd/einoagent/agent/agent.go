@@ -129,14 +129,6 @@ func RunAgent(ctx context.Context, id string, msg string, s *sse.Stream) (*schem
 
 	msgFutureOpt, msgFuture := react.WithMessageFuture()
 
-	sr, err := runner.Stream(ctx, userMessage,
-		compose.WithCallbacks(cbHandler),
-		flowagent.GetComposeOptions(msgFutureOpt)[0].DesignateNode("ReactAgent"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stream: %w", err)
-	}
-
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
@@ -190,6 +182,14 @@ func RunAgent(ctx context.Context, id string, msg string, s *sse.Stream) (*schem
 			conversation.Append(lastAssistantMsg)
 		}
 	}()
+
+	sr, err := runner.Stream(ctx, userMessage,
+		compose.WithCallbacks(cbHandler),
+		flowagent.GetComposeOptions(msgFutureOpt)[0].DesignateNode("ReactAgent"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stream: %w", err)
+	}
 
 	wg.Wait()
 

@@ -20,31 +20,31 @@ import (
 	"context"
 	"os"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino-ext/components/model/deepseek"
 	"github.com/cloudwego/eino/components/model"
 )
 
 func newChatModel(ctx context.Context) (cm model.ToolCallingChatModel, err error) {
 	// TODO Modify component configuration here.
-	// config := &deepseek.ChatModelConfig{
-	// 	BaseURL:     os.Getenv("DEEPSEEK_BASE_URL"),
-	// 	Model:       os.Getenv("DEEPSEEK_CHAT_MODEL"),
-	// 	APIKey:      os.Getenv("DEEPSEEK_API_KEY"),
-	// 	Temperature: 0.7,
-	// }
-	// cm, err = deepseek.NewChatModel(ctx, config)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	config := &openai.ChatModelConfig{
-		BaseURL: os.Getenv("OPENAI_BASE_URL"),
-		Model:   os.Getenv("OPENAI_MODEL_NAME"),
-		APIKey:  os.Getenv("OPENAI_API_KEY"),
+	config := &deepseek.ChatModelConfig{
+		BaseURL:     os.Getenv("DEEPSEEK_BASE_URL"),
+		Model:       os.Getenv("DEEPSEEK_CHAT_MODEL"),
+		APIKey:      os.Getenv("DEEPSEEK_API_KEY"),
+		Temperature: 0.7,
 	}
-	cm, err = openai.NewChatModel(ctx, config)
+	cm, err = deepseek.NewChatModel(ctx, config)
 	if err != nil {
 		return nil, err
 	}
+
+	// config := &openai.ChatModelConfig{
+	// 	BaseURL: os.Getenv("OPENAI_BASE_URL"),
+	// 	Model:   os.Getenv("OPENAI_MODEL_NAME"),
+	// 	APIKey:  os.Getenv("OPENAI_API_KEY"),
+	// }
+	// cm, err = openai.NewChatModel(ctx, config)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	return cm, nil
 }
