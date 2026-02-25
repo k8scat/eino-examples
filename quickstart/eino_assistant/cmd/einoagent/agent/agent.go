@@ -23,14 +23,19 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/cloudwego/eino-ext/callbacks/apmplus"
 	"github.com/cloudwego/eino-ext/callbacks/langfuse"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/compose"
+	flowagent "github.com/cloudwego/eino/flow/agent"
+	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
+	"github.com/hertz-contrib/sse"
 
 	"github.com/cloudwego/eino-examples/quickstart/eino_assistant/eino/einoagent"
 	"github.com/cloudwego/eino-examples/quickstart/eino_assistant/pkg/mem"
@@ -104,7 +109,7 @@ func Init() error {
 	return err
 }
 
-func RunAgent(ctx context.Context, id string, msg string) (*schema.StreamReader[*schema.Message], error) {
+func RunAgent(ctx context.Context, id string, msg string, s *sse.Stream) (*schema.StreamReader[*schema.Message], error) {
 
 	runner, err := einoagent.BuildEinoAgent(ctx)
 	if err != nil {
@@ -119,55 +124,76 @@ func RunAgent(ctx context.Context, id string, msg string) (*schema.StreamReader[
 		History: conversation.GetMessages(),
 	}
 	if os.Getenv("APMPLUS_APP_KEY") != "" {
-		// set session info for apmplus callback
 		ctx = apmplus.SetSession(ctx, apmplus.WithSessionID(id), apmplus.WithUserID("eino-assistant-user"))
 	}
-	sr, err := runner.Stream(ctx, userMessage, compose.WithCallbacks(cbHandler))
+
+	msgFutureOpt, msgFuture := react.WithMessageFuture()
+
+	sr, err := runner.Stream(ctx, userMessage,
+		compose.WithCallbacks(cbHandler),
+		flowagent.GetComposeOptions(msgFutureOpt)[0].DesignateNode("ReactAgent"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stream: %w", err)
 	}
 
-	srs := sr.Copy(2)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 
 	go func() {
-		// for save to memory
-		fullMsgs := make([]*schema.Message, 0)
+		defer wg.Done()
+		iter := msgFuture.GetMessageStreams()
+		var lastAssistantMsg *schema.Message
 
-		defer func() {
-			// close stream if you used it
-			srs[1].Close()
-
-			// add user input to history
-			conversation.Append(schema.UserMessage(msg))
-
-			fullMsg, err := schema.ConcatMessages(fullMsgs)
-			if err != nil {
-				fmt.Println("error concatenating messages: ", err.Error())
-			}
-			// add agent response to history
-			conversation.Append(fullMsg)
-		}()
-
-	outer:
 		for {
-			select {
-			case <-ctx.Done():
-				fmt.Println("context done", ctx.Err())
-				return
-			default:
-				chunk, err := srs[1].Recv()
+			msgSr, ok, e := iter.Next()
+			if e != nil {
+				slog.Error("error getting next message stream", "error", e)
+				break
+			}
+			if !ok {
+				break
+			}
+
+			var chunks []*schema.Message
+			for {
+				chunk, err := msgSr.Recv()
 				if err != nil {
 					if errors.Is(err, io.EOF) {
-						break outer
+						break
 					}
+					slog.Error("error receiving message chunk", "error", err)
+					break
 				}
-
-				fullMsgs = append(fullMsgs, chunk)
+				// fmt.Printf("chunk: %s, time: %s\n", chunk.Content, time.Now().Format("2006-01-02 15:04:05.000"))
+				chunks = append(chunks, chunk)
+				s.Publish(&sse.Event{
+					Event: "message-" + time.Now().Format("2006-01-02_15:04:05.000"),
+					Data:  []byte(chunk.Content),
+				})
 			}
+
+			fullMsg, err := schema.ConcatMessages(chunks)
+			if err != nil || fullMsg == nil {
+				continue
+			}
+
+			slog.Info("receiving message", "role", fullMsg.Role, "content_len", len(fullMsg.Content))
+
+			if fullMsg.Role == schema.Assistant && len(fullMsg.ToolCalls) == 0 {
+				lastAssistantMsg = fullMsg
+			}
+		}
+
+		conversation.Append(schema.UserMessage(msg))
+		if lastAssistantMsg != nil {
+			conversation.Append(lastAssistantMsg)
 		}
 	}()
 
-	return srs[0], nil
+	wg.Wait()
+
+	return sr, nil
 }
 
 type LogCallbackConfig struct {
@@ -188,6 +214,7 @@ func LogCallback(config *LogCallbackConfig) callbacks.Handler {
 	}
 	builder := callbacks.NewHandlerBuilder()
 	builder.OnStartFn(func(ctx context.Context, info *callbacks.RunInfo, input callbacks.CallbackInput) context.Context {
+		slog.Info("log callback start", "component", info.Component, "type", info.Type, "name", info.Name)
 		fmt.Fprintf(config.Writer, "[view]: start [%s:%s:%s]\n", info.Component, info.Type, info.Name)
 		if config.Detail {
 			var b []byte
@@ -196,12 +223,22 @@ func LogCallback(config *LogCallbackConfig) callbacks.Handler {
 			} else {
 				b, _ = json.Marshal(input)
 			}
-			fmt.Fprintf(config.Writer, "%s\n", string(b))
+			fmt.Fprintf(config.Writer, "[view]: start input: %s\n", string(b))
 		}
 		return ctx
 	})
 	builder.OnEndFn(func(ctx context.Context, info *callbacks.RunInfo, output callbacks.CallbackOutput) context.Context {
+		slog.Info("log callback end", "component", info.Component, "type", info.Type, "name", info.Name)
 		fmt.Fprintf(config.Writer, "[view]: end [%s:%s:%s]\n", info.Component, info.Type, info.Name)
+		if config.Detail {
+			var b []byte
+			if config.Debug {
+				b, _ = json.MarshalIndent(output, "", "  ")
+			} else {
+				b, _ = json.Marshal(output)
+			}
+			fmt.Fprintf(config.Writer, "[view]: end output: %s\n", string(b))
+		}
 		return ctx
 	})
 	return builder.Build()

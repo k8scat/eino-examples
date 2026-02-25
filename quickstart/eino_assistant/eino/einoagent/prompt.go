@@ -48,6 +48,8 @@ var systemPrompt = `
 
 - If the question is compound or complex, you need to think step by step, avoiding giving low-quality answers directly.
 
+- If you need to call a tool, directly output the tool, do not output text.
+
 ## Context Information
 - Current Date: {date}
 - Related Documents: |-

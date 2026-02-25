@@ -44,7 +44,7 @@ func init() {
 	}
 
 	// check some essential envs
-	env.MustHasEnvs("ARK_CHAT_MODEL", "ARK_EMBEDDING_MODEL", "ARK_API_KEY")
+	env.MustHasEnvs("DEEPSEEK_CHAT_MODEL", "DEEPSEEK_BASE_URL", "DEEPSEEK_API_KEY", "DASHSCOPE_EMBEDDING_MODEL", "DASHSCOPE_API_KEY")
 }
 
 func main() {

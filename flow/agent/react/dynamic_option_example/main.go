@@ -28,6 +28,7 @@ import (
 	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
+	"github.com/cloudwego/eino-ext/components/model/deepseek"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
@@ -43,8 +44,8 @@ import (
 )
 
 func main() {
-	arkApiKey := os.Getenv("ARK_API_KEY")
-	arkModelName := os.Getenv("ARK_MODEL_NAME")
+	apiKey := os.Getenv("DEEPSEEK_API_KEY")
+	modelName := os.Getenv("DEEPSEEK_CHAT_MODEL")
 
 	ctx := context.Background()
 
@@ -60,12 +61,12 @@ func main() {
 	)}
 
 	// Create Ark ChatModel with custom HTTP client
-	config := &ark.ChatModelConfig{
-		APIKey:     arkApiKey,
-		Model:      arkModelName,
+	config := &deepseek.ChatModelConfig{
+		APIKey:     apiKey,
+		Model:      modelName,
 		HTTPClient: client,
 	}
-	arkChatModel, err := ark.NewChatModel(ctx, config)
+	cm, err := deepseek.NewChatModel(ctx, config)
 	if err != nil {
 		logs.Errorf("failed to create chat model: %v", err)
 		return
@@ -82,7 +83,7 @@ func main() {
 	// The GetOptionFunc will be called before each ChatModel.Generate() call,
 	// allowing us to modify options based on the current iteration state.
 	dynamicModel := &dynamic.ChatModel{
-		Model:         arkChatModel,
+		Model:         cm,
 		GetOptionFunc: getDynamicOptions,
 	}
 
@@ -92,6 +93,7 @@ func main() {
 		ToolsConfig: compose.ToolsNodeConfig{
 			Tools: []tool.BaseTool{restaurantTool, dishTool},
 		},
+		StreamToolCallChecker: fullStreamChecker,
 	})
 	if err != nil {
 		logs.Errorf("failed to create agent: %v", err)
@@ -158,6 +160,23 @@ func main() {
 
 	wg.Wait()
 	fmt.Printf("\n==================== Finished ====================\n")
+}
+
+func fullStreamChecker(ctx context.Context, sr *schema.StreamReader[*schema.Message]) (bool, error) {
+	defer sr.Close()
+	for {
+		msg, err := sr.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return false, err
+		}
+		if len(msg.ToolCalls) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // processMessageFuture reads from the MessageFuture and prints intermediate results.

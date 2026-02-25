@@ -22,43 +22,50 @@ import (
 	"github.com/cloudwego/eino-examples/quickstart/eino_assistant/pkg/tool/einotool"
 	"github.com/cloudwego/eino-examples/quickstart/eino_assistant/pkg/tool/gitclone"
 	"github.com/cloudwego/eino-examples/quickstart/eino_assistant/pkg/tool/open"
+	"github.com/cloudwego/eino-examples/quickstart/eino_assistant/pkg/tool/readfile"
 	"github.com/cloudwego/eino-examples/quickstart/eino_assistant/pkg/tool/task"
 	"github.com/cloudwego/eino-ext/components/tool/duckduckgo/v2"
 	"github.com/cloudwego/eino/components/tool"
 )
 
 func GetTools(ctx context.Context) ([]tool.BaseTool, error) {
-	einoAssistantTool, err := NewEinoAssistantTool(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// einoAssistantTool, err := NewEinoAssistantTool(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	toolTask, err := NewTaskTool(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// toolTask, err := NewTaskTool(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	toolOpen, err := NewOpenFileTool(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	toolGitClone, err := NewGitCloneFile(ctx)
+	toolReadFile, err := NewReadFileTool(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	toolDDGSearch, err := NewDDGSearch(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+	// toolGitClone, err := NewGitCloneFile(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// toolDDGSearch, err := NewDDGSearch(ctx, nil)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return []tool.BaseTool{
-		einoAssistantTool,
-		toolTask,
+		// einoAssistantTool,
+		// toolTask,
 		toolOpen,
-		toolGitClone,
-		toolDDGSearch,
+		toolReadFile,
+		// toolGitClone,
+		// toolDDGSearch,
 	}, nil
 }
 
@@ -95,4 +102,8 @@ func NewEinoAssistantTool(ctx context.Context) (tn tool.BaseTool, err error) {
 
 func NewTaskTool(ctx context.Context) (tn tool.BaseTool, err error) {
 	return task.NewTaskTool(ctx, nil)
+}
+
+func NewReadFileTool(ctx context.Context) (tn tool.BaseTool, err error) {
+	return readfile.NewReadFileTool(ctx, nil)
 }

@@ -1,0 +1,8 @@
+Eino（谐音"爱诺"）是基于 Golang 的 AI 应用开发框架，由字节跳动开源。
+它提供了丰富的 AI 组件抽象和编排能力，包括：
+1. ChatModel - 大语言模型接口抽象
+2. Tool - 工具调用能力
+3. Retriever - 检索增强生成(RAG)
+4. Flow/Agent - ReAct 等 Agent 编排模式
+5. Compose - 灵活的组件编排图
+Eino 的目标是让 Go 开发者能够快速构建高质量的 AI 应用。

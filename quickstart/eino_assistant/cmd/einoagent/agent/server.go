@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"context"
 	"embed"
-	"errors"
 	"io"
 	"log"
 	"mime"
@@ -98,7 +97,14 @@ func HandleChat(ctx context.Context, c *app.RequestContext) {
 
 	log.Printf("[Chat] Starting chat with ID: %s, Message: %s\n", id, message)
 
-	sr, err := RunAgent(ctx, id, message)
+	s := sse.NewStream(c)
+	defer func() {
+		c.Flush()
+
+		log.Printf("[Chat] Finished chat with ID: %s\n", id)
+	}()
+
+	_, err := RunAgent(ctx, id, message, s)
 	if err != nil {
 		log.Printf("[Chat] Error running agent: %v\n", err)
 		c.JSON(consts.StatusInternalServerError, map[string]string{
@@ -108,40 +114,33 @@ func HandleChat(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	s := sse.NewStream(c)
-	defer func() {
-		sr.Close()
-		c.Flush()
+	// outer:
+	// 	for {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			log.Printf("[Chat] Context done for chat ID: %s\n", id)
+	// 			return
+	// 		default:
+	// 			msg, err := sr.Recv()
+	// 			if errors.Is(err, io.EOF) {
+	// 				log.Printf("[Chat] EOF received for chat ID: %s\n", id)
+	// 				break outer
+	// 			}
+	// 			if err != nil {
+	// 				log.Printf("[Chat] Error receiving message: %v\n", err)
+	// 				break outer
+	// 			}
 
-		log.Printf("[Chat] Finished chat with ID: %s\n", id)
-	}()
-
-outer:
-	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("[Chat] Context done for chat ID: %s\n", id)
-			return
-		default:
-			msg, err := sr.Recv()
-			if errors.Is(err, io.EOF) {
-				log.Printf("[Chat] EOF received for chat ID: %s\n", id)
-				break outer
-			}
-			if err != nil {
-				log.Printf("[Chat] Error receiving message: %v\n", err)
-				break outer
-			}
-
-			err = s.Publish(&sse.Event{
-				Data: []byte(msg.Content),
-			})
-			if err != nil {
-				log.Printf("[Chat] Error publishing message: %v\n", err)
-				break outer
-			}
-		}
-	}
+	//			err = s.Publish(&sse.Event{
+	//				Event: "message-" + time.Now().Format("2006-01-02_15:04:05.000"),
+	//				Data:  []byte(msg.Content),
+	//			})
+	//			if err != nil {
+	//				log.Printf("[Chat] Error publishing message: %v\n", err)
+	//				break outer
+	//			}
+	//		}
+	//	}
 }
 
 func HandleHistory(ctx context.Context, c *app.RequestContext) {

@@ -18,9 +18,12 @@ package einoagent
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/flow/agent/react"
+	"github.com/cloudwego/eino/schema"
 )
 
 // newLambda1 component initialization function of node 'ReactAgent' in graph 'EinoAgent'
@@ -33,12 +36,13 @@ func newLambda1(ctx context.Context) (lba *compose.Lambda, err error) {
 	if err != nil {
 		return nil, err
 	}
-	config.Model = chatModelIns11
+	config.ToolCallingModel = chatModelIns11
 	tools, err := GetTools(ctx)
 	if err != nil {
 		return nil, err
 	}
 	config.ToolsConfig.Tools = tools
+	// config.StreamToolCallChecker = fullStreamChecker
 	ins, err := react.NewAgent(ctx, config)
 	if err != nil {
 		return nil, err
@@ -48,4 +52,21 @@ func newLambda1(ctx context.Context) (lba *compose.Lambda, err error) {
 		return nil, err
 	}
 	return lba, nil
+}
+
+func fullStreamChecker(ctx context.Context, sr *schema.StreamReader[*schema.Message]) (bool, error) {
+	defer sr.Close()
+	for {
+		msg, err := sr.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return false, err
+		}
+		if len(msg.ToolCalls) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }

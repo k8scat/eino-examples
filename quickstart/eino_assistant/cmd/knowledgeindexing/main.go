@@ -38,7 +38,7 @@ import (
 
 func init() {
 	// check some essential envs
-	env.MustHasEnvs("ARK_API_KEY", "ARK_EMBEDDING_MODEL")
+	env.MustHasEnvs("DASHSCOPE_API_KEY", "DASHSCOPE_EMBEDDING_MODEL")
 }
 
 func main() {

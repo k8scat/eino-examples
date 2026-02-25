@@ -21,6 +21,8 @@ import (
 
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+
+	"github.com/cloudwego/eino-examples/devops/visualize"
 )
 
 func BuildEinoAgent(ctx context.Context) (r compose.Runnable[*UserMessage, *schema.Message], err error) {
@@ -56,7 +58,8 @@ func BuildEinoAgent(ctx context.Context) (r compose.Runnable[*UserMessage, *sche
 	_ = g.AddEdge(RedisRetriever, ChatTemplate)
 	_ = g.AddEdge(InputToHistory, ChatTemplate)
 	_ = g.AddEdge(ChatTemplate, ReactAgent)
-	r, err = g.Compile(ctx, compose.WithGraphName("EinoAgent"), compose.WithNodeTriggerMode(compose.AllPredecessor))
+	gen := visualize.NewMermaidGenerator("data")
+	r, err = g.Compile(ctx, compose.WithGraphName("EinoAgent"), compose.WithNodeTriggerMode(compose.AllPredecessor), compose.WithGraphCompileCallbacks(gen))
 	if err != nil {
 		return nil, err
 	}
