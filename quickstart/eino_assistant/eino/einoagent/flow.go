@@ -42,7 +42,8 @@ func newLambda1(ctx context.Context) (lba *compose.Lambda, err error) {
 		return nil, err
 	}
 	config.ToolsConfig.Tools = tools
-	// config.StreamToolCallChecker = fullStreamChecker
+	// todo 移除自定义StreamToolCallChecker可以正常流式输出
+	config.StreamToolCallChecker = fullStreamChecker
 	ins, err := react.NewAgent(ctx, config)
 	if err != nil {
 		return nil, err
